@@ -7,10 +7,11 @@ Here is a public download for my recreations of the RICOH as65c toolchain as wel
 - link
 - hex2bin
 - rel_reader (custom .rel debugging tool)
+- addROMdata (custom data insertion tool)
 
 
 ## Building
-If you would like to create executables for these programs, install `PyInstaller` via the command line using `pip install pyinstaller`. Then you will be able to use `BUILD_ALL.bat` to build standalone executables of these programs for your current operating system.
+If you would like to create executables for these programs, install `PyInstaller` via the command line using `pip install pyinstaller`. Then you will be able to use `make.bat` (Windows) or `make <tool name>.exe`/`make all` (Linux) to build standalone executables of these programs for your current operating system.
 
 
 ## License
