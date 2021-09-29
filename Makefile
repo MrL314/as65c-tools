@@ -1,18 +1,18 @@
 
 
-files = as65c.exe\
- link.exe\
- hex2bin.exe\
- rel_reader.exe\
- addROMdata.exe
+files = as65c.build\
+ link.build\
+ hex2bin.build\
+ rel_reader.build\
+ addROMdata.build
 
 
 all: $(files) 
 	make clean
 	
-%.exe:
+%.build:
 	pyinstaller $(basename $*)/$(basename $*).py --onefile --noconfirm
-	cp dist/$(basename $*).exe $(basename $*).exe
+	cp dist/$(basename $*) $(basename $*)
 	rm $(basename $*)/__pycache__ -d -rf
 	rm $(basename $*).spec
 
