@@ -21,9 +21,9 @@ FILE = ""
 if __name__ == "__main__":
 
 
-	parser = argparse.ArgumentParser(description="Add asset data to ROM file, to create .sfc file.")
+	parser = argparse.ArgumentParser(description="Create human-readable format for the .rel file.")
 
-	parser.add_argument("inputfile", metavar="inputfile", type=str, help="Name of code ROM file.", default="")
+	parser.add_argument("inputfile", metavar="inputfile", type=str, help="Name of rel file.", default="")
 	parser.add_argument("--hideops", action="store_true", help="Hides assumed opcode mnemonics, and instead shows raw byte value. Default shows mnemonics.")
 	parser.add_argument("--ws", action="store_true", help="Shows whitespace lines where there is no code in the code output.")
 	parser.add_argument("--header", action="store_true", help="Displays only the header data for the rel file.")
@@ -1092,7 +1092,10 @@ if __name__ == "__main__":
 		dat, MONTH   = get_bytes(dat, 1)
 		dat, DAY     = get_bytes(dat, 1)
 		dat, WEEKDAY = get_bytes(dat, 1)
-		print("ASSEMBLY DATE: " + WEEKDAYS[WEEKDAY] + " " + MONTHS[MONTH] + " " + format(DAY, "02d") + ", XX" + str(YEAR))
+		try:
+			print("ASSEMBLY DATE: " + WEEKDAYS[WEEKDAY] + " " + MONTHS[MONTH] + " " + format(DAY, "02d") + ", XX" + str(YEAR))
+		except:
+			print("INVALID ASSEMBLY DATE DATA:" + "\n\tWEEKDAY: " + format(WEEKDAY, "02x") + "\n\tMONTH:   " + format(MONTH, "02x") + "\n\tDAY:     " + format(DAY, "02x") + "\n\tYEAR:    " + format(YEAR, "02x"))
 		#dat = dat[4:]
 
 
