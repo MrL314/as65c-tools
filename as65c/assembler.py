@@ -1961,14 +1961,16 @@ def assembleFile(filename, ext_vars={}, force_assemble=False, check_hash=False, 
 
 				elif chunk["type"] == util.DATA_TYPES.OPCODE:
 
-					if chunk["opcode"].lower() in {"jmp", "jml", "jsr"}:
+					op = chunk["opcode"].lower()
+
+					if op in {"jmp", "jml", "jsr"}:
 						if LINE[cind+1]["type"] in {util.DATA_TYPES.INDIRECT_START, util.DATA_TYPES.INDIRECT_LONG_START}:
 
 							if LINE[cind+2]["type"] != util.DATA_TYPES.TYPE:
 								LINE[cind+2]["size"] = 2
 
 
-					elif chunk["opcode"].lower() in {"adc", "and", "cmp", "eor", "lda", "ora", "sbc", "sta"}:
+					elif op in {"adc", "and", "cmp", "eor", "lda", "ora", "sbc", "sta"}:
 						try:
 							if LINE[cind+1]["type"] == util.DATA_TYPES.INDIRECT_LONG_START:
 								if LINE[cind+3]["type"] == util.DATA_TYPES.INDIRECT_LONG_END:
@@ -2168,11 +2170,13 @@ def assembleFile(filename, ext_vars={}, force_assemble=False, check_hash=False, 
 
 					is_move = False
 					is_op = False
+					op = None
 					for cind in range(LINE_LEN):
 						chunk = LINE[cind]
 
 						if chunk["type"] == util.DATA_TYPES.OPCODE:
 							is_op = True
+							op = chunk["opcode"].lower()
 
 						elif chunk["type"] == util.DATA_TYPES.PFLAG:
 							# processor flag
@@ -2252,6 +2256,11 @@ def assembleFile(filename, ext_vars={}, force_assemble=False, check_hash=False, 
 									#elif chunk["size"] == 0 and LINE_OBJ.is_op() and LINE[cind-1]["type"] != util.DATA_TYPES.TYPE:
 									#	LINE[cind]["size"] = 2
 									#	chunk = LINE[cind]
+									elif LINE[cind-1]["type"] != util.DATA_TYPES.TYPE:
+										
+										if op in {"cop", "rep", "sep", "brk", "wdm"}:
+											LINE[cind]["size"] = 1
+
 
 
 
