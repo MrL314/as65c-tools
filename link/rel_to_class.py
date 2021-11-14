@@ -300,10 +300,10 @@ class REL_FILE(object):
 					if S["sec_name"] == s:
 						return S
 
-			raise KeyError("No section with name " + s)
+			raise KeyError("No section with name " + str(s))
 
 		else:
-			raise TypeError("Cannot find section based on type " + type(S))
+			raise TypeError("Cannot find section based on type " + str(type(s)))
 
 
 
@@ -536,8 +536,11 @@ class REL_FILE(object):
 				#print("GLB value:\n   data1: " + list_to_string(data1) + "\n   offset: " + list_to_string(offset).replace(" ","")) 
 				#print("GLB   ", NAME.ljust(20), "     ; ", get_section_name(section) + "::" + list_to_string(offset).replace(" ",""))
 
-				self._global_vars.append({"name": NAME, "section": self.get_section(section)["sec_name"], "offset": list_to_int(offset, signed=True), "value": -1})
-				self._all_globals.append({"name": NAME, "section": self.get_section(section)["sec_name"], "offset": list_to_int(offset, signed=True), "value": -1})
+				sec = self.get_section(section)
+
+				self._global_vars.append({"name": NAME, "section": sec["sec_name"], "offset": list_to_int(offset, signed=True), "value": -1})
+				self._all_globals.append({"name": NAME, "section": sec["sec_name"], "offset": list_to_int(offset, signed=True), "value": -1})
+				self._labels[NAME] = {"section": sec["sec_name"], "offset": list_to_int(offset, signed=True)}
 
 			elif TYPE == 6:
 				val = dat.get_bytes(8)
@@ -637,8 +640,9 @@ class REL_FILE(object):
 
 				#print("GLB value:\n   data1: " + list_to_string(data1) + "\n   offset: " + list_to_string(offset).replace(" ","")) 
 				#print("label ", NAME.ljust(25), "; " + get_section_name(section) + ":" + list_to_string(offset[1:]).replace(" ","").upper())
+				sec = self.get_section(section)
 
-				self._labels[NAME] = {"section": self.get_section(section), "offset": list_to_int(offset, signed=True)}
+				self._labels[NAME] = {"section": sec["sec_name"], "offset": list_to_int(offset, signed=True)}
 
 
 			elif TYPE == 2:

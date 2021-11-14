@@ -32,8 +32,6 @@ if __name__ == "__main__":
 
 	parser.add_argument("-r", dest="rel_args", type=str, nargs="+", action="append", default=[], help="REL section offsets.", required=True)
 
-	#parser.add_argument("--rom_size", dest="rom_size", default=-1, type=int, help="Set output rom size (in KB)")
-
 	parser.add_argument("-o", dest="outputfile", type=str, help="Output file.", required=True)
 
 	parser.add_argument("-ls", dest="mapfile", type=str, help="Map file.")

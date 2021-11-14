@@ -56,6 +56,72 @@ def get_file_path(p):
 	return basepath
 
 
+def clean_file_paths(files):
+
+	#base_dir = files[0].replace("\\", "/")
+	#b = base_dir.split("/")
+
+	b = []
+	cleaned = []
+
+	first = True
+
+	for f in files:
+		f = f.replace("\\", "/")
+
+		s = f.split("/")
+
+
+		ind = 0
+
+		real_dir = False
+
+		while ind < len(s):
+			if s[ind] == "..":
+				if real_dir:
+					s.pop(ind)
+					s.pop(ind-1)
+					ind -= 1
+			else:
+				real_dir = True
+
+			ind += 1
+
+
+
+		if first:
+			b = s
+			first = False
+
+
+		s_ind = 0
+		l = min(len(b), len(s))
+		while s_ind < l:
+			if s[s_ind] != b[s_ind]:
+				b = b[:s_ind]
+				break
+
+			s_ind += 1
+
+
+		cleaned.append(s)
+
+
+
+	out = []
+	for c in cleaned:
+		s_ind = 0
+		l = min(len(b), len(c))
+		while s_ind < l:
+			if c[s_ind] != b[s_ind]:
+				break
+			s_ind += 1
+
+		out.append("/".join(c[s_ind:]))
+
+	return ("/".join(b), out)
+
+
 
 inputfile = "linked rel files.txt"
 outputfile = "LINKED_OUTPUT.rom"
@@ -80,11 +146,12 @@ def DO_LINK(L_ARGS):
 
 
 		FILES = rel_files
+		BASE_DIR, clean_files = clean_file_paths(FILES)
 
 		REL_FILES = []
 		GLOBALS = {}
 
-		
+		NO_ERRORS = True
 
 		make_offset_vars(rel_offsets)
 
@@ -112,15 +179,19 @@ def DO_LINK(L_ARGS):
 					except Exception as e:
 						traceback.print_exc()
 						print("[ERROR] Error while parsing " + str(F) + ".")
+						NO_ERRORS = False
 
 			except FileNotFoundError:
 				print("[ERROR] Missing " + str(F) + ".")
+				NO_ERRORS = False
 
 
 
 
 
-		print("[INFO] LINKING FILES")
+		print("[INFO] LINKING FILES\n")
+
+		#print(OFFSETS)
 
 		# step 1: section offsets
 		for f_name, R in REL_FILES:
@@ -131,6 +202,7 @@ def DO_LINK(L_ARGS):
 					if S["sec_addr"] == -1:
 						if not NAME in OFFSETS:
 							OFFSETS[NAME] = 0
+							#print("NOT IN OFFSETS: ", NAME)
 						R.get_section(S["sec_name"])["sec_addr"] = OFFSETS[NAME]
 
 						size = 0
@@ -140,16 +212,40 @@ def DO_LINK(L_ARGS):
 						R.get_section(S["sec_name"])["sec_size"] = size
 						OFFSETS[NAME] += size
 
+					'''else:
+						if not NAME in START_OFFS:
+							START_OFFS[NAME] = S["sec_addr"]
+					'''
 
 
+		CODE_LABELS = {}
+		F_GLOBAL_LABELS = {}
 
 		# step 2: set global vars
 		for f_name, R in REL_FILES:
+			F_GLOBAL_LABELS[f_name] = set()
 			for G in R._global_vars[1:]:
 				if G["value"] == -1:
-					GLOBALS[G["name"]] = R.get_section(G["section"])["sec_addr"] + G["offset"]
+					v = R.get_section(G["section"])["sec_addr"] + G["offset"]
+					GLOBALS[G["name"]] = v
+					#CODE_LABELS[G["name"]] = v
+					F_GLOBAL_LABELS[f_name].add(G["name"])
+
 				else:
 					GLOBALS[G["name"]] = G["value"]
+
+
+		
+		# step 2.5: get all labels for debugging output
+		for f_name, R in REL_FILES:
+			for LBL in R._labels:
+				L = R._labels[LBL]
+				sec = R.get_section(L["section"])
+				v = sec["sec_addr"] + L["offset"]
+				is_glb = "     "
+				if LBL in F_GLOBAL_LABELS[f_name]: is_glb = "(GLB)"
+				CODE_LABELS[f_name + "\x00" + sec['sec_name'] + "\x00" + LBL + "\x00" + is_glb] = v
+
 
 
 
@@ -243,6 +339,7 @@ def DO_LINK(L_ARGS):
 
 						except Exception as e:
 							raise Exception(f_name + "::" + S["sec_name"] + str(c))
+							NO_ERRORS = False
 
 
 
@@ -264,19 +361,25 @@ def DO_LINK(L_ARGS):
 		CODE_BLOCKS = []
 
 
+
 		with open(map_file, "w") as F:
+
+			if BASE_DIR != "": F.write("BASE_DIRECTORY=\"" + BASE_DIR + "\"\n")
+
+
+			F.write("\n" + " ".join(["FILE NAME".ljust(40), "MODULE".ljust(30), "SECTION".ljust(15), "START".ljust(12), "END".ljust(15), "SIZE".ljust(8), ";   ERRORS"]) + "\n")
 
 			f_ind = 0
 			for f_name, R in REL_FILES:
 				for S in R._sections[1:]:
 					if S["sec_size"] > 0:
+
+						err_msg = ";"
+
 						ind = S["sec_addr"]
 
-						start_addr = format(ind, "06x")
-						end_addr = format(ind + S["sec_size"] - 1, "06x")
-						F_NAME = FILES[f_ind]
-
-
+						s_addr = ind
+						e_addr = ind + S["sec_size"] - 1
 
 
 						#sect_name =  S["sec_name"].replace(f_name, "")
@@ -292,8 +395,44 @@ def DO_LINK(L_ARGS):
 							pass
 
 
+						s_n = sect_name
+
+						if sect_name == "PSEG": s_n = "PROG"
+						if sect_name == "DSEG": s_n = "DATA"
+
+						if s_n != "ASEG":
+							try:
+								s_offs = START_OFFS[s_n.upper()] & 0x7FFFFF
+							except:
+								s_offs = 0
+						else:
+							s_offs = ind & 0x7FFFFF
+
+						e_offs = e_addr & 0x7FFFFF
+
+						if (s_offs & 0x7F0000) != (e_offs & 0x7F0000):
+							print("[WARNING] File '" + f_name + ".rel', section '" + S["sec_name"] + "' crosses a bank boundary. Code may not work as intended.")
+							err_msg = "; [WARNING] CROSSES BANK BOUNDARY!!"
+							NO_ERRORS = False
+							
+						for sec in START_OFFS:
+							o = START_OFFS[sec] & 0x7FFFFF
+							if s_offs < o and e_offs >= o:
+								print("[ERROR] File '" + f_name + ".rel', section '" + S["sec_name"] + "' overwrites data in section '" + sec + "'.")
+								err_msg = "; [ERROR] OVERWRITES SECTION '" + sec + "'!!"
+								NO_ERRORS = False
+								break
+
+
+
+						start_addr = format(s_addr, "06x")
+						end_addr = format(e_addr, "06x")
+						F_NAME = clean_files[f_ind]
+
+
+
 						
-						F.write(" ".join([F_NAME.ljust(30), f_name.ljust(30), sect_name.ljust(15), start_addr[:2] + ":" + start_addr[2:] + "\t",  end_addr[:2] + ":" + end_addr[2:] + "\t", format(S["sec_size"], "04x")]) + "\n")
+						F.write(" ".join([F_NAME.ljust(40), f_name.ljust(30), sect_name.ljust(15), (start_addr[:2] + ":" + start_addr[2:]).ljust(12), (end_addr[:2] + ":" + end_addr[2:]).ljust(15), format(S["sec_size"], "04x").ljust(8), err_msg]) + "\n")
 						
 
 
@@ -332,6 +471,7 @@ def DO_LINK(L_ARGS):
 								#	ind += 1
 						except Exception as e:
 							print(e)
+							NO_ERRORS = False
 
 							raise Exception("Section = " + f_name + "::" + S["sec_name"] + ", " + str(c))
 
@@ -348,6 +488,8 @@ def DO_LINK(L_ARGS):
 		#with open("LOG.txt", "w") as f:
 		#	for x in CODE_BLOCKS:
 		#		f.write("(" + format(x[0], "06x").upper() + ", [" + ", ".join([format(b, "02x").upper() for b in x[1]]) + "], " + format(x[2], "04x").upper() + ")\n")
+
+
 
 
 
@@ -557,6 +699,36 @@ def DO_LINK(L_ARGS):
 			pass
 		"""
 
+		SORTED_LABELS = sorted(CODE_LABELS.items(), key=lambda kv: kv[1] & 0x7FFFFF)
+
+
+		def addr_to_hex(a):
+			s = format(a, "06x").upper()
+			return "$" + s[:-4] + ":" + s[-4:]
+
+
+
+		with open("LABELS.txt", 'w') as f:
+
+			p_f_name = "\x00"
+			p_s_name = "\x00"
+
+			FIRST = True
+
+			for name, addr in SORTED_LABELS:
+				f_name, s_name, lbl, is_glb = name.split("\x00")
+
+				if f_name != p_f_name or s_name != p_s_name:
+					p_f_name = f_name
+					p_s_name = s_name
+
+					if FIRST: FIRST = False
+					else:     f.write("\n")
+
+					f.write(("FILE: " + f_name + ".asm").ljust(30) + "SECTION: " + s_name + "\n")
+
+				f.write(("   " + addr_to_hex(addr) + "  " + is_glb).ljust(20) + lbl + "\n")
+
 
 
 
@@ -565,7 +737,11 @@ def DO_LINK(L_ARGS):
 		#with open(outputfile, "wb") as outf:
 		#	outf.write(bytes(HEX_DATA[:ROM_SIZE * 0x400]))
 
-		print("\n[INFO] Successfully linked to " + str(outputfile) + ".\n\n")
+		if NO_ERRORS: 
+			print("\n[INFO] Successfully linked to " + str(outputfile) + ".\n\n")
+		else:
+			print("\n[WARNING] Warnings or Errors occured during linking stage. Please look over errors.")
+			print("[INFO] Linked to " + str(outputfile) + ".\n\n")
 
 	except Exception as e:
 
